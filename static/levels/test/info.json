@@ -1,0 +1,11 @@
+{
+    "scene": "scene.gltf",
+    "skybox": [
+        "textures/skybox_right.png",
+        "textures/skybox_left.png",
+        "textures/skybox_top.png",
+        "textures/skybox_bottom.png",
+        "textures/skybox_front.png",
+        "textures/skybox_back.png"
+    ]
+}
