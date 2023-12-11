@@ -1,15 +1,21 @@
 import { CubeTextureLoader, Scene } from "three";
 // @ts-ignore - TODO: Why is this import all fucked?
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+// @ts-ignore - TODO: Why is this import all fucked?
+import { Octree } from "three/examples/jsm/math/Octree";
 
 
 
 export class Level {
 
     public readonly scene: Scene;
+    public readonly octree: Octree;
 
     constructor(scene: Scene) {
         this.scene = scene;
+
+        this.octree = new Octree();
+        this.octree.fromGraphNode(this.scene);
     }
 
     public static async load(path: string): Promise<Level> {

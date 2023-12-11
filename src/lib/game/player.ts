@@ -1,6 +1,7 @@
-import { Euler, Mesh, Triangle, Vector3 } from "three";
+import { Camera, Euler, Quaternion, Vector3 } from "three";
 import type { Game } from "./game";
-import { Cylinder, INTERSECT_CYLINDER_TRIANGLE } from "./collision";
+// @ts-ignore - TODO: Why is this import all fucked?
+import { Capsule } from "three/examples/jsm/math/Capsule";
 
 
 
@@ -14,10 +15,17 @@ const KEYS = {
 
 
 
+const FLOOR_MAX_VELOCITY = 20;
+const FLOOR_ACCELERATE = 5;
+
 const AIR_MAX_VELOCITY = 300;
-const AIR_ACCELERATE = 0.0001;
+const AIR_ACCELERATE = 0.01;
+
+const GRAVITY = 0.001;
+const JUMP_STRENGTH = 5;
 
 const HEIGHT = 2;
+const RADIUS = 0.5;
 
 
 
@@ -34,86 +42,96 @@ export class Player {
     public position: Vector3 = new Vector3();
     public velocity: Vector3 = new Vector3();
 
+    public onFloor: boolean = false;
+
+
+
     /**
-     * 
      * @see https://github.com/id-Software/Quake-III-Arena/blob/master/code/game/bg_pmove.c#L240
      */
     public accelerate(wishDir: Vector3, wishSpeed: number, accel: number, dt: number): void {
         const currentSpeed = this.velocity.dot(wishDir);
         const addSpeed = wishSpeed - currentSpeed;
         if(addSpeed <= 0) return;
-        const accelSpeed = accel * dt * wishSpeed;
+        let accelSpeed = accel * dt * wishSpeed;
+        if(accelSpeed > addSpeed) {
+            accelSpeed = addSpeed;
+        }
         this.velocity.add(wishDir.clone().multiplyScalar(accelSpeed));
     }
 
-    // TODO.
-    public get onGround(): boolean {
-        return false;
-    }
-
     public move(wishDir: Vector3, dt: number): void {
-        if(this.onGround) {
-            // TODO
+        if(this.onFloor) {
+            this.accelerate(wishDir, FLOOR_ACCELERATE, FLOOR_MAX_VELOCITY, dt);
         } else {
             this.accelerate(wishDir, AIR_ACCELERATE, AIR_MAX_VELOCITY, dt);
         }
     }
 
-    public tick(): void {
+    private capsule(): Capsule {
+        const capsule = new Capsule(
+            new Vector3(0, HEIGHT, 0),
+            new Vector3(0, HEIGHT - RADIUS),
+            RADIUS
+        );
+        capsule.translate(this.position);
+        return capsule;
+    }
+
+    private collideWorld(): void {
+        const result = this.game.level.octree.capsuleIntersect(this.capsule()) as {
+            normal: Vector3;
+            point?: Vector3;
+            depth: number;
+        } | false;
+
+        this.onFloor = false;
+
+        if(result) {
+
+            this.onFloor = result.normal.y > 0;
+
+            if(this.onFloor) {
+                this.velocity.addScaledVector(result.normal, -result.normal.dot(this.velocity));
+            }
+
+            this.position.add(result.normal.multiplyScalar(result.depth - Number.EPSILON));
+
+        }
+    }
+
+    public tick(dt: number = 1): void {
 
         let moveDir = new Vector3();
+
         if(this.isPressed(KEYS.FORWARD)) moveDir.add(this.forward().negate());
         if(this.isPressed(KEYS.BACKWARD)) moveDir.add(this.forward());
         if(this.isPressed(KEYS.LEFT)) moveDir.add(this.left());
         if(this.isPressed(KEYS.RIGHT)) moveDir.add(this.left().negate());
 
         moveDir.normalize();
+        this.move(moveDir, dt);
 
-        this.move(moveDir, 1);
-        this.velocity.add(new Vector3(0, -0.001, 0));
-        this.position.addScaledVector(this.velocity, 1);
-
-        // TODO: Clean this up.
-        const cyl = new Cylinder(this.position, 0.5, HEIGHT);
-        const meshes: Mesh[] = this.game.level.scene.children[0].children.filter(child => child instanceof Mesh) as unknown as Mesh[];
-        let tris: Triangle[] = [];
-        for(const mesh of meshes) {
-            const geom = mesh.geometry;
-            const pos = geom.getAttribute('position').array;
-            const ind = geom.getIndex()?.array;
-
-            if(!ind) {
-                continue; // TODO
-            } else {
-                for(let i = 0; i < ind.length; i += 3) {
-                    const tri = new Triangle(
-                        new Vector3(
-                            pos[ind[i + 0]*3 + 0],
-                            pos[ind[i + 0]*3 + 1],
-                            pos[ind[i + 0]*3 + 2],
-                        ),
-                        new Vector3(
-                            pos[ind[i + 1]*3 + 0],
-                            pos[ind[i + 1]*3 + 1],
-                            pos[ind[i + 1]*3 + 2],
-                        ),
-                        new Vector3(
-                            pos[ind[i + 2]*3 + 0],
-                            pos[ind[i + 2]*3 + 1],
-                            pos[ind[i + 2]*3 + 2],
-                        )
-                    );
-
-                    tris.push(tri);
-                }
+        if(this.isPressed(KEYS.JUMP)) {
+            if(this.onFloor) {
+                this.velocity.y += JUMP_STRENGTH;
             }
         }
-        for(const tri of tris) {
-            const col = INTERSECT_CYLINDER_TRIANGLE(cyl, tri);
-            if(col) {
-                this.position.add(col.normal);
-            }
+
+
+
+        if(!this.onFloor) {
+            this.velocity.y -= GRAVITY * dt;
         }
+
+        if(this.onFloor) {
+            this.velocity.addScaledVector(this.velocity, (Math.exp(-4 * dt) - 1));
+        }
+
+        const deltaPos = this.velocity.clone().multiplyScalar(dt);
+        this.position.add(deltaPos);
+
+        this.collideWorld();
 
     }
 
@@ -140,13 +158,13 @@ export class Player {
     public pointerSpeed: number = 1;
     public pitch: number = 0;
     public yaw: number = 0;
+    public roll: number = 0;
 
     public eyePosition(): Vector3 {
         return this.position.clone().add(new Vector3(0, HEIGHT, 0));
     }
     public eyeRotation(): Euler {
-        // TODO: Pitch.
-        return new Euler(0, this.yaw, 0);
+        return new Euler(this.pitch, this.yaw, this.roll, 'ZYX');
     }
 
     public mouseMove(dx: number, dy: number): void {
