@@ -15,6 +15,8 @@
         const level = await Level.load('levels/test');
         game = new Game(level, canvas);
 
+        game.renderer.render();
+
         console.log(game);
     });
     
