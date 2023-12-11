@@ -12,7 +12,7 @@ export class Level {
         this.scene = scene;
     }
 
-    static async load(path: string): Promise<Level> {
+    public static async load(path: string): Promise<Level> {
         // TODO: Better parsing.
 
         const info: {
