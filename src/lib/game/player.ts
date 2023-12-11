@@ -1,5 +1,6 @@
-import { Euler, Vector3 } from "three";
+import { Euler, Mesh, Triangle, Vector3 } from "three";
 import type { Game } from "./game";
+import { Cylinder, INTERSECT_CYLINDER_TRIANGLE } from "./collision";
 
 
 
@@ -69,7 +70,50 @@ export class Player {
         moveDir.normalize();
 
         this.move(moveDir, 1);
+        this.velocity.add(new Vector3(0, -0.001, 0));
         this.position.addScaledVector(this.velocity, 1);
+
+        // TODO: Clean this up.
+        const cyl = new Cylinder(this.position, 0.5, HEIGHT);
+        const meshes: Mesh[] = this.game.level.scene.children[0].children.filter(child => child instanceof Mesh) as unknown as Mesh[];
+        let tris: Triangle[] = [];
+        for(const mesh of meshes) {
+            const geom = mesh.geometry;
+            const pos = geom.getAttribute('position').array;
+            const ind = geom.getIndex()?.array;
+
+            if(!ind) {
+                continue; // TODO
+            } else {
+                for(let i = 0; i < ind.length; i += 3) {
+                    const tri = new Triangle(
+                        new Vector3(
+                            pos[ind[i + 0]*3 + 0],
+                            pos[ind[i + 0]*3 + 1],
+                            pos[ind[i + 0]*3 + 2],
+                        ),
+                        new Vector3(
+                            pos[ind[i + 1]*3 + 0],
+                            pos[ind[i + 1]*3 + 1],
+                            pos[ind[i + 1]*3 + 2],
+                        ),
+                        new Vector3(
+                            pos[ind[i + 2]*3 + 0],
+                            pos[ind[i + 2]*3 + 1],
+                            pos[ind[i + 2]*3 + 2],
+                        )
+                    );
+
+                    tris.push(tri);
+                }
+            }
+        }
+        for(const tri of tris) {
+            const col = INTERSECT_CYLINDER_TRIANGLE(cyl, tri);
+            if(col) {
+                this.position.add(col.normal);
+            }
+        }
 
     }
 
