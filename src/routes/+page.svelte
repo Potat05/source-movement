@@ -60,6 +60,9 @@
     use:resize={(width, height) => {
         canvas.width = width;
         canvas.height = height;
+        if(!active && game) {
+            game.renderer.render();
+        }
     }}
     on:click={ev => {
         if(ev.button != 0) return;
