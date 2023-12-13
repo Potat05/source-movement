@@ -2,7 +2,7 @@
     import { pointerlockchange } from "$lib/PointerLockChange";
     import { resize } from "$lib/Resize";
     import { Game } from "$lib/game/game";
-    import { Level } from "$lib/game/level";
+    import { loadLevel } from "$lib/game/level";
     import { onDestroy, onMount } from "svelte";
 
     let canvas: HTMLCanvasElement;
@@ -12,7 +12,7 @@
     onMount(async () => {
         console.clear();
 
-        const level = await Level.load('levels/test');
+        const level = await await loadLevel('levels/test');
         game = new Game(level, canvas);
 
         game.renderer.render();
@@ -60,8 +60,11 @@
     use:resize={(width, height) => {
         canvas.width = width;
         canvas.height = height;
-        if(!active && game) {
-            game.renderer.render();
+        if(game) {            
+            game.renderer.updateSize();
+            if(!active) {
+                game.renderer.render();
+            }
         }
     }}
     on:click={ev => {

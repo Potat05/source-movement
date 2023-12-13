@@ -78,7 +78,7 @@ export class Player {
     }
 
     private collideWorld(): void {
-        const result = this.game.level.octree.capsuleIntersect(this.capsule()) as {
+        const result = this.game.collision.capsuleIntersect(this.capsule()) as {
             normal: Vector3;
             point?: Vector3;
             depth: number;
