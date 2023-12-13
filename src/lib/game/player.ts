@@ -1,4 +1,4 @@
-import { Camera, Euler, Quaternion, Vector3 } from "three";
+import { Euler, Vector3 } from "three";
 import type { Game } from "./game";
 // @ts-ignore - TODO: Why is this import all fucked?
 import { Capsule } from "three/examples/jsm/math/Capsule";
@@ -15,21 +15,18 @@ const KEYS = {
 
 
 
-const FLOOR_MAX_VELOCITY = 20;
-const FLOOR_ACCELERATE = 5;
-
-const AIR_MAX_VELOCITY = 300;
-const AIR_ACCELERATE = 0.01;
-
-const GRAVITY = 0.001;
-const JUMP_STRENGTH = 5;
-
-const HEIGHT = 2;
-const RADIUS = 0.5;
-
-
-
 export class Player {
+
+    public static readonly FLOOR_MAX_VELOCITY = 20;
+    public static readonly FLOOR_ACCELERATE = 5;
+    public static readonly AIR_MAX_VELOCITY = 300;
+    public static readonly AIR_ACCELERATE = 0.01;
+    public static readonly GRAVITY = 0.003;
+    public static readonly JUMP_STRENGTH = 5;
+    public static readonly HEIGHT = 2;
+    public static readonly RADIUS = 0.5;
+
+
     
     public readonly game: Game;
 
@@ -39,10 +36,12 @@ export class Player {
 
 
 
-    public position: Vector3 = new Vector3();
-    public velocity: Vector3 = new Vector3();
+    public readonly position: Vector3 = new Vector3();
+    public readonly velocity: Vector3 = new Vector3();
 
-    public onFloor: boolean = false;
+    private _onFloor: boolean = false;
+    public get onFloor(): boolean { return this._onFloor; }
+    private set onFloor(onFloor: boolean) { this._onFloor = onFloor; }
 
 
 
@@ -62,17 +61,17 @@ export class Player {
 
     public move(wishDir: Vector3, dt: number): void {
         if(this.onFloor) {
-            this.accelerate(wishDir, FLOOR_ACCELERATE, FLOOR_MAX_VELOCITY, dt);
+            this.accelerate(wishDir, Player.FLOOR_ACCELERATE, Player.FLOOR_MAX_VELOCITY, dt);
         } else {
-            this.accelerate(wishDir, AIR_ACCELERATE, AIR_MAX_VELOCITY, dt);
+            this.accelerate(wishDir, Player.AIR_ACCELERATE, Player.AIR_MAX_VELOCITY, dt);
         }
     }
 
     private capsule(): Capsule {
         const capsule = new Capsule(
-            new Vector3(0, HEIGHT, 0),
-            new Vector3(0, HEIGHT - RADIUS),
-            RADIUS
+            new Vector3(0, Player.HEIGHT, 0),
+            new Vector3(0, Player.HEIGHT - Player.RADIUS),
+            Player.RADIUS
         );
         capsule.translate(this.position);
         return capsule;
@@ -89,7 +88,8 @@ export class Player {
 
         if(result) {
 
-            this.onFloor = result.normal.y > 0;
+            // Slightly higher than 45 degree incline.
+            this.onFloor = result.normal.y > 0.8;
 
             // Slide against collision plane.
             if(!this.onFloor) {
@@ -116,22 +116,21 @@ export class Player {
 
         if(this.isPressed(KEYS.JUMP)) {
             if(this.onFloor) {
-                this.velocity.y += JUMP_STRENGTH;
+                this.velocity.y += Player.JUMP_STRENGTH;
             }
         }
 
 
 
-        if(!this.onFloor) {
-            this.velocity.y -= GRAVITY * dt;
-        }
+        // TODO: bhop
 
         if(this.onFloor) {
             this.velocity.addScaledVector(this.velocity, (Math.exp(-4 * dt) - 1));
+        } else {
+            this.velocity.y -= Player.GRAVITY * dt;
         }
 
-        const deltaPos = this.velocity.clone().multiplyScalar(dt);
-        this.position.add(deltaPos);
+        this.position.addScaledVector(this.velocity, dt);
 
         this.collideWorld();
 
@@ -163,7 +162,7 @@ export class Player {
     public roll: number = 0;
 
     public eyePosition(): Vector3 {
-        return this.position.clone().add(new Vector3(0, HEIGHT, 0));
+        return this.position.clone().add(new Vector3(0, Player.HEIGHT, 0));
     }
     public eyeRotation(): Euler {
         return new Euler(this.pitch, this.yaw, this.roll, 'ZYX');

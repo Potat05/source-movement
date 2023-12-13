@@ -1,4 +1,4 @@
-import { AmbientLight, Color, CubeTextureLoader, DirectionalLight, Mesh, MeshStandardMaterial, Scene } from "three";
+import { AmbientLight, Color, CubeTextureLoader, Mesh, MeshStandardMaterial, Scene } from "three";
 // @ts-ignore - TODO: Why is this import all fucked?
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 // @ts-ignore - TODO: Why is this import all fucked?
