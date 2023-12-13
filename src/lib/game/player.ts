@@ -91,10 +91,12 @@ export class Player {
 
             this.onFloor = result.normal.y > 0;
 
-            if(this.onFloor) {
+            // Slide against collision plane.
+            if(!this.onFloor) {
                 this.velocity.addScaledVector(result.normal, -result.normal.dot(this.velocity));
             }
 
+            // Force outside of collision plane.
             this.position.add(result.normal.multiplyScalar(result.depth - Number.EPSILON));
 
         }
