@@ -78,28 +78,49 @@ export class Player {
     }
 
     private collideWorld(): void {
-        const result = this.game.collision.capsuleIntersect(this.capsule()) as {
-            normal: Vector3;
-            point?: Vector3;
-            depth: number;
-        } | false;
+
+        const FLOOR_Y_ANGLE = 0.8;
+        const MIN_DEPTH = 1e-6;
+
+        let maxCollisionChecks: number = 8;
+
+        function isFloor(norm: Vector3): boolean {
+            return norm.y > FLOOR_Y_ANGLE;
+        }
 
         this.onFloor = false;
 
-        if(result) {
+        for(let i = 0; i < maxCollisionChecks; i++) {
 
-            // Slightly higher than 45 degree incline.
-            this.onFloor = result.normal.y > 0.8;
+            let collisions = this.game.collision.capsuleIntersect(this.capsule());
+            if(collisions.length == 0) return;
 
-            // Slide against collision plane.
-            if(!this.onFloor) {
-                this.velocity.addScaledVector(result.normal, -result.normal.dot(this.velocity));
+            const collision = collisions.reduce((highest, col) => {
+                if(!highest) return col;
+                if(highest.depth < col.depth) return col;
+                return highest;
+            });
+            if(collision === undefined) return;
+            if(collision.depth <= MIN_DEPTH) return;
+
+            if(isFloor(collision.normal)) {
+                this.onFloor = true;
+            } else {
+                // Slide against collision plane.
+                this.velocity.addScaledVector(collision.normal, -collision.normal.dot(this.velocity));
             }
 
             // Force outside of collision plane.
-            this.position.add(result.normal.multiplyScalar(result.depth - Number.EPSILON));
+            this.position.add(collision.normal.multiplyScalar(collision.depth));
 
         }
+
+        // TODO: The above code still isn't that good.
+        // It easily reaches max collision checks quite a bit.
+        // An easy place to reproduce is at the ramps in the test level.
+        // If you walk on the second ramp towards the third it will trigger this warning.
+        console.warn('Hit max collision checks.');
+
     }
 
     public tick(dt: number = 1): void {

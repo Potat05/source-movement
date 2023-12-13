@@ -5,6 +5,7 @@ import { Ticker } from "../Ticker";
 import type { Scene } from "three";
 // @ts-ignore - TODO: Why is this import all fucked?
 import { Octree } from "three/examples/jsm/math/Octree";
+import { Collision } from "./collision";
 
 
 
@@ -14,7 +15,7 @@ export class Game {
     public readonly player: Player;
     public readonly renderer: Renderer;
     public readonly scene: Scene;
-    public readonly collision: Octree;
+    public readonly collision: Collision;
 
     private readonly ticker: Ticker = new Ticker('timeout', 1000 / 60);
     public start(): void { this.ticker.start(); }
@@ -30,8 +31,7 @@ export class Game {
         });
 
         this.scene = level.scene;
-        this.collision = new Octree();
-        this.collision.fromGraphNode(this.scene);
+        this.collision = new Collision(this.scene);
     }
 
     public tick(): void {
