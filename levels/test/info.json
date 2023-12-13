@@ -7,5 +7,11 @@
         "textures/skybox_bottom.png",
         "textures/skybox_front.png",
         "textures/skybox_back.png"
-    ]
+    ],
+    "ambient": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "intensity": 0.5
+    }
 }
