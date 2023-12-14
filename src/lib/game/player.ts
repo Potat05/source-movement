@@ -15,6 +15,11 @@ const KEYS = {
 
 
 
+const FLOOR_Y_ANGLE = 0.8;
+const COLLISION_MIN_DEPTH = 1e-6;
+
+
+
 export class Player {
 
     public static readonly FLOOR_MAX_VELOCITY = 20;
@@ -42,6 +47,7 @@ export class Player {
     private _onFloor: boolean = false;
     public get onFloor(): boolean { return this._onFloor; }
     private set onFloor(onFloor: boolean) { this._onFloor = onFloor; }
+    public readonly floorNormal: Vector3 = new Vector3();
 
 
 
@@ -79,9 +85,6 @@ export class Player {
 
     private collideWorld(): void {
 
-        const FLOOR_Y_ANGLE = 0.8;
-        const MIN_DEPTH = 1e-6;
-
         let maxCollisionChecks: number = 8;
 
         function isFloor(norm: Vector3): boolean {
@@ -101,10 +104,12 @@ export class Player {
                 return highest;
             });
             if(collision === undefined) return;
-            if(collision.depth <= MIN_DEPTH) return;
+            if(collision.depth <= COLLISION_MIN_DEPTH) return;
 
             if(isFloor(collision.normal)) {
+                // TODO: If we are colliding with multiple floors? What floor normal do we use?
                 this.onFloor = true;
+                this.floorNormal.copy(collision.normal);
             } else {
                 // Slide against collision plane.
                 this.velocity.addScaledVector(collision.normal, -collision.normal.dot(this.velocity));
@@ -125,6 +130,7 @@ export class Player {
 
     public tick(dt: number = 1): void {
 
+        // Input to move player.
         let moveDir = new Vector3();
 
         if(this.isPressed(KEYS.FORWARD)) moveDir.add(this.forward().negate());
@@ -145,13 +151,28 @@ export class Player {
 
         // TODO: bhop
 
+        const lastPos = new Vector3().copy(this.position);
+
         if(this.onFloor) {
+            // Floor friction damping.
             this.velocity.addScaledVector(this.velocity, (Math.exp(-4 * dt) - 1));
         } else {
+            // Gravity
             this.velocity.y -= Player.GRAVITY * dt;
         }
 
         this.position.addScaledVector(this.velocity, dt);
+
+        // Stick to floor
+        if(this.onFloor) {
+            // TODO: Stick to floor.
+            // My brain is currently too fried to think about this, Maybe later. . .
+            // const dist = -this.floorNormal.dot(lastPos.clone().sub(this.position));
+            // if(dist >= COLLISION_MIN_DEPTH) {
+            //     console.log('stick', dist);
+            //     this.position.addScaledVector(this.floorNormal, -dist);
+            // }
+        }
 
         this.collideWorld();
 

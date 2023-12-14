@@ -1,5 +1,5 @@
 
-import { Scene, Triangle, Vector3 } from "three";
+import { Object3D, Triangle, Vector3 } from "three";
 // @ts-ignore - TODO: Why is this import all fucked?
 import { Octree } from "three/examples/jsm/math/Octree";
 // @ts-ignore - TODO: Why is this import all fucked?
@@ -20,13 +20,16 @@ export class Collision {
     public readonly octree: Octree;
 
     constructor(octree: Octree);
-    constructor(scene: Scene);
-    constructor(data: Octree | Scene) {
-        if(data instanceof Scene) {
+    constructor(object: Object3D);
+    constructor(data: Octree | Object3D) {
+        if(data instanceof Object3D) {
             this.octree = new Octree();
             this.octree.fromGraphNode(data);
         } else if(data instanceof Octree) {
             this.octree = data;
+        } else {
+            console.log(data);
+            throw new Error('Collision could not construct octree.');
         }
     }
 

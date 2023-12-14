@@ -3,8 +3,6 @@ import { Player } from "./player";
 import { Renderer } from "./renderer";
 import { Ticker } from "../Ticker";
 import type { Scene } from "three";
-// @ts-ignore - TODO: Why is this import all fucked?
-import { Octree } from "three/examples/jsm/math/Octree";
 import { Collision } from "./collision";
 
 
@@ -31,7 +29,7 @@ export class Game {
         });
 
         this.scene = level.scene;
-        this.collision = new Collision(this.scene);
+        this.collision = new Collision(this.scene.getObjectByName('collision')!);
     }
 
     public tick(): void {

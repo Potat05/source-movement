@@ -1,5 +1,15 @@
 {
-    "scene": "scene.gltf",
+    "objects": [
+        {
+            "active": true,
+            "collideable": true,
+            "file": "scene.gltf"
+        }, {
+            "active": false,
+            "collideable": true,
+            "file": "https://threejs.org/examples/models/gltf/collision-world.glb"
+        }
+    ],
     "skybox": [
         "textures/skybox_right.png",
         "textures/skybox_left.png",
