@@ -24,6 +24,20 @@ function isFloor(norm: Vector3): boolean {
 
 
 
+const OVERCLIP = 1.001;
+
+function clipVelocity(velocity: Vector3, normal: Vector3, overbounce: number): Vector3 {
+    let backoff = velocity.dot(normal);
+    if(backoff < 0) {
+        backoff *= overbounce;
+    } else {
+        backoff /= overbounce;
+    }
+    return velocity.clone().addScaledVector(normal, -backoff);
+}
+
+
+
 export class Player {
 
     public static readonly FLOOR_MAX_VELOCITY = 2;
@@ -90,6 +104,9 @@ export class Player {
 
     private collideWorld(): void {
 
+        // TODO: This code is not that great.
+        // Will need a full rethink on how to actually do this.
+
         const collision = this.game.collision.capsuleIntersectAvg(this.capsule());
 
         this.onFloor = false;
@@ -139,7 +156,15 @@ export class Player {
 
         this.position.addScaledVector(this.velocity, dt);
 
-        // TODO: Stick to floor.
+        // Stick to floor plane.
+        if(this.onFloor) {
+            // https://github.com/id-Software/Quake-III-Arena/blob/master/code/game/bg_pmove.c#L790
+            const vel = this.velocity.length();
+            const clipped = clipVelocity(this.velocity, this.floorNormal, OVERCLIP);
+            clipped.normalize().multiplyScalar(vel);
+            this.velocity.copy(clipped);
+            // TODO: The above code is very jank and barely works.
+        }
 
         this.collideWorld();
     }
