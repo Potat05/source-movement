@@ -49,6 +49,10 @@ export class Collision {
         return intersections;
     }
 
+    public capsuleIntersectAvg(capsule: Capsule): (Intersection & { point: never; }) | false {
+        return this.octree.capsuleIntersect(capsule);
+    }
+
 }
 
 

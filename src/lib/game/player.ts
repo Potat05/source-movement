@@ -2,6 +2,7 @@ import { Euler, Vector3 } from "three";
 import type { Game } from "./game";
 // @ts-ignore - TODO: Why is this import all fucked?
 import { Capsule } from "three/examples/jsm/math/Capsule";
+import type { Collision } from "./collision";
 
 
 
@@ -16,20 +17,24 @@ const KEYS = {
 
 
 const FLOOR_Y_ANGLE = 0.8;
-const COLLISION_MIN_DEPTH = 1e-6;
+
+function isFloor(norm: Vector3): boolean {
+    return norm.y > FLOOR_Y_ANGLE;
+}
 
 
 
 export class Player {
 
-    public static readonly FLOOR_MAX_VELOCITY = 20;
-    public static readonly FLOOR_ACCELERATE = 5;
+    public static readonly FLOOR_MAX_VELOCITY = 2;
+    public static readonly FLOOR_ACCELERATE = 0.3;
     public static readonly AIR_MAX_VELOCITY = 300;
     public static readonly AIR_ACCELERATE = 0.01;
-    public static readonly GRAVITY = 0.003;
-    public static readonly JUMP_STRENGTH = 5;
+    public static readonly GRAVITY = 0.005;
+    public static readonly JUMP_STRENGTH = 0.15;
     public static readonly HEIGHT = 2;
     public static readonly RADIUS = 0.5;
+    private static readonly STEPS = 10;
 
 
     
@@ -85,51 +90,26 @@ export class Player {
 
     private collideWorld(): void {
 
-        let maxCollisionChecks: number = 8;
-
-        function isFloor(norm: Vector3): boolean {
-            return norm.y > FLOOR_Y_ANGLE;
-        }
+        const collision = this.game.collision.capsuleIntersectAvg(this.capsule());
 
         this.onFloor = false;
 
-        for(let i = 0; i < maxCollisionChecks; i++) {
+        if(collision) {
+            this.onFloor = isFloor(collision.normal);
 
-            let collisions = this.game.collision.capsuleIntersect(this.capsule());
-            if(collisions.length == 0) return;
-
-            const collision = collisions.reduce((highest, col) => {
-                if(!highest) return col;
-                if(highest.depth < col.depth) return col;
-                return highest;
-            });
-            if(collision === undefined) return;
-            if(collision.depth <= COLLISION_MIN_DEPTH) return;
-
-            if(isFloor(collision.normal)) {
-                // TODO: If we are colliding with multiple floors? What floor normal do we use?
-                this.onFloor = true;
-                this.floorNormal.copy(collision.normal);
-            } else {
-                // Slide against collision plane.
+            if(!this.onFloor) {
                 this.velocity.addScaledVector(collision.normal, -collision.normal.dot(this.velocity));
+            } else {
+                this.floorNormal.copy(collision.normal);
             }
 
-            // Force outside of collision plane.
-            this.position.add(collision.normal.multiplyScalar(collision.depth));
+            this.position.addScaledVector(collision.normal, collision.depth);
 
         }
 
-        // TODO: The above code still isn't that good.
-        // It easily reaches max collision checks quite a bit.
-        // An easy place to reproduce is at the ramps in the test level.
-        // If you walk on the second ramp towards the third it will trigger this warning.
-        console.warn('Hit max collision checks.');
-
     }
 
-    public tick(dt: number = 1): void {
-
+    private inputMovement(dt: number): void {
         // Input to move player.
         let moveDir = new Vector3();
 
@@ -137,25 +117,21 @@ export class Player {
         if(this.isPressed(KEYS.BACKWARD)) moveDir.add(this.forward());
         if(this.isPressed(KEYS.LEFT)) moveDir.add(this.left());
         if(this.isPressed(KEYS.RIGHT)) moveDir.add(this.left().negate());
-
-        moveDir.normalize();
-        this.move(moveDir, dt);
-
         if(this.isPressed(KEYS.JUMP)) {
             if(this.onFloor) {
-                this.velocity.y += Player.JUMP_STRENGTH;
+                this.velocity.y = Player.JUMP_STRENGTH;
+                this.onFloor = false;
             }
         }
 
+        moveDir.normalize();
+        this.move(moveDir, dt);
+    }
 
-
-        // TODO: bhop
-
-        const lastPos = new Vector3().copy(this.position);
-
+    private updatePlayer(dt: number): void {
         if(this.onFloor) {
-            // Floor friction damping.
-            this.velocity.addScaledVector(this.velocity, (Math.exp(-4 * dt) - 1));
+            // Floor friction damping..
+            this.velocity.addScaledVector(this.velocity, Math.exp(-4 * dt) - 1);
         } else {
             // Gravity
             this.velocity.y -= Player.GRAVITY * dt;
@@ -163,18 +139,19 @@ export class Player {
 
         this.position.addScaledVector(this.velocity, dt);
 
-        // Stick to floor
-        if(this.onFloor) {
-            // TODO: Stick to floor.
-            // My brain is currently too fried to think about this, Maybe later. . .
-            // const dist = -this.floorNormal.dot(lastPos.clone().sub(this.position));
-            // if(dist >= COLLISION_MIN_DEPTH) {
-            //     console.log('stick', dist);
-            //     this.position.addScaledVector(this.floorNormal, -dist);
-            // }
-        }
+        // TODO: Stick to floor.
 
         this.collideWorld();
+    }
+
+    public tick(dt: number = 1): void {
+
+        const STEP_DT = dt / Player.STEPS;
+
+        for(let i = 0; i < Player.STEPS; i++) {
+            this.inputMovement(STEP_DT);
+            this.updatePlayer(STEP_DT);
+        }
 
     }
 
